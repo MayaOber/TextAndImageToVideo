@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-to-Video Setup</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="setup-page">
+    <h1>Text-to-Video Setup</h1>
+    
+    <div class="section">
+        <h2>API Keys</h2>
+        <div class="form-group">
+            <label for="openai_key">OpenAI API Key:</label>
+            <input type="text" id="openai_key" name="openai_key">
+        </div>
+        <div class="form-group">
+            <label for="elevenlabs_key">ElevenLabs API Key:</label>
+            <input type="text" id="elevenlabs_key" name="elevenlabs_key">
+        </div>
+        <div class="form-group">
+            <label for="hedra_key">Hedra API Key:</label>
+            <input type="text" id="hedra_key" name="hedra_key">
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Voice Settings</h2>
+        <div class="form-group">
+            <label for="voice_name">ElevenLabs Voice Name:</label>
+            <input type="text" id="voice_name" name="voice_name">
+        </div>
+        <div class="form-group">
+            <label for="voice_model">ElevenLabs Model:</label>
+            <input type="text" id="voice_model" name="voice_model">
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Static Text Template</h2>
+        <div class="form-group">
+            <label for="static_text">Template Text (use {name} for name placeholder):</label>
+            <textarea id="static_text" name="static_text"></textarea>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>SMTP Settings</h2>
+        <div class="form-group">
+            <label for="smtp_server">SMTP Server:</label>
+            <input type="text" id="smtp_server" name="smtp_server">
+        </div>
+        <div class="form-group">
+            <label for="smtp_port">SMTP Port:</label>
+            <input type="number" id="smtp_port" name="smtp_port">
+        </div>
+        <div class="form-group">
+            <label for="smtp_username">SMTP Username:</label>
+            <input type="text" id="smtp_username" name="smtp_username">
+        </div>
+        <div class="form-group">
+            <label for="smtp_password">SMTP Password:</label>
+            <input type="password" id="smtp_password" name="smtp_password">
+        </div>
+        <div class="form-group">
+            <label for="from_email">From Email:</label>
+            <input type="text" id="from_email" name="from_email">
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Default Assets</h2>
+        <div class="form-group">
+            <label for="default_audio">Default Audio:</label>
+            <input type="file" id="default_audio" name="default_audio" accept="audio/*">
+            <div id="audio_preview"></div>
+            <div class="current-assets">
+                <strong>Current Audio:</strong>
+                <audio id="current_audio" controls>
+                    <source src="/assets/audio.mp3" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="default_image">Default Image:</label>
+            <input type="file" id="default_image" name="default_image" accept="image/*">
+            <div id="image_preview" class="file-preview"></div>
+            <div class="current-assets">
+                <strong>Current Image:</strong><br>
+                <img id="current_image" src="/assets/image.jpg" alt="Current default image">
+            </div>
+        </div>
+    </div>
+
+    <button onclick="saveSettings()">Save Settings</button>
+    <div id="status"></div>
+
+    <script>
+        // Load current settings when page loads
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/.env');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const settings = await response.json();
+                
+                // Set form values based on env variables
+                document.getElementById('openai_key').value = settings.OPENAI_API_KEY || '';
+                document.getElementById('elevenlabs_key').value = settings.ELEVENLABS_API_KEY || '';
+                document.getElementById('hedra_key').value = settings.HEDRA_API_KEY || '';
+                document.getElementById('static_text').value = settings.STATIC_TEXT || '';
+                document.getElementById('voice_name').value = settings.ELEVENLABS_VOICE_NAME || '';
+                document.getElementById('voice_model').value = settings.ELEVENLABS_MODEL || '';
+                document.getElementById('smtp_server').value = settings.SMTP_SERVER || '';
+                document.getElementById('smtp_port').value = settings.SMTP_PORT || '';
+                document.getElementById('smtp_username').value = settings.SMTP_USERNAME || '';
+                document.getElementById('smtp_password').value = settings.SMTP_PASSWORD || '';
+                document.getElementById('from_email').value = settings.FROM_EMAIL || '';
+
+                // Load current assets
+                refreshAssets();
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                document.getElementById('status').innerHTML = `<p class="error">Error loading settings: ${error.message}</p>`;
+            }
+        });
+
+        // Function to refresh assets
+        function refreshAssets() {
+            // Refresh audio
+            const audioElement = document.getElementById('current_audio');
+            const audioSource = audioElement.querySelector('source');
+            audioSource.src = `/assets/audio.mp3#t=${Date.now()}`; // Add timestamp as fragment
+            audioElement.load();
+
+            // Refresh image using a new Image object
+            const img = new Image();
+            img.onload = function() {
+                document.getElementById('current_image').src = this.src;
+            };
+            img.src = `/assets/image.jpg#${Date.now()}`; // Add timestamp as fragment
+        }
+
+        // Preview handlers for file uploads
+        document.getElementById('default_audio').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = URL.createObjectURL(file);
+                const preview = document.getElementById('audio_preview');
+                preview.innerHTML = '';
+                preview.appendChild(audio);
+            }
+        });
+
+        document.getElementById('default_image').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                const preview = document.getElementById('image_preview');
+                preview.innerHTML = '';
+                preview.appendChild(img);
+            }
+        });
+
+        // Save settings
+        async function saveSettings() {
+            const formData = new FormData();
+            
+            // Add all text settings
+            const settings = {
+                OPENAI_API_KEY: document.getElementById('openai_key').value,
+                ELEVENLABS_API_KEY: document.getElementById('elevenlabs_key').value,
+                HEDRA_API_KEY: document.getElementById('hedra_key').value,
+                STATIC_TEXT: document.getElementById('static_text').value,
+                ELEVENLABS_VOICE_NAME: document.getElementById('voice_name').value,
+                ELEVENLABS_MODEL: document.getElementById('voice_model').value,
+                SMTP_SERVER: document.getElementById('smtp_server').value,
+                SMTP_PORT: document.getElementById('smtp_port').value,
+                SMTP_USERNAME: document.getElementById('smtp_username').value,
+                SMTP_PASSWORD: document.getElementById('smtp_password').value,
+                FROM_EMAIL: document.getElementById('from_email').value
+            };
+
+            formData.append('settings', JSON.stringify(settings));
+
+            // Add files if selected
+            const audioFile = document.getElementById('default_audio').files[0];
+            const imageFile = document.getElementById('default_image').files[0];
+            if (audioFile) formData.append('audio', audioFile);
+            if (imageFile) formData.append('image', imageFile);
+
+            try {
+                const response = await fetch('/save_settings', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = '<p class="success">Settings saved successfully!</p>';
+                    // Refresh assets after saving
+                    refreshAssets();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to save settings');
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

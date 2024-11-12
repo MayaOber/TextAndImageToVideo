@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Form</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="form-page">
+    <div class="container">
+        <form id="contactForm">
+            <div class="form-group">
+                <label for="location">LOCATION</label>
+                <div class="location-input-container">
+                    <select id="location" required onchange="handleLocationChange(this.value)">
+                        <option value="">City (Drop down selection)</option>
+                        <option value="New York">New York</option>
+                        <option value="Los Angeles">Los Angeles</option>
+                        <option value="Chicago">Chicago</option>
+                        <option value="Houston">Houston</option>
+                        <option value="Phoenix">Phoenix</option>
+                        <option value="Philadelphia">Philadelphia</option>
+                        <option value="San Antonio">San Antonio</option>
+                        <option value="San Diego">San Diego</option>
+                        <option value="Dallas">Dallas</option>
+                        <option value="San Jose">San Jose</option>
+                        <option value="other">Other (Enter manually)</option>
+                    </select>
+                    <input type="text" id="customLocation" placeholder="Enter your city" style="display: none;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="name">YOUR DETAILS</label>
+                <input type="text" id="name" placeholder="Given Name" required>
+            </div>
+
+            <div class="form-group">
+                <input type="tel" id="mobile" placeholder="Mobile Number" required>
+            </div>
+
+            <div class="form-group">
+                <input type="email" id="email" placeholder="Email Address" required>
+            </div>
+
+            <div class="consent-group">
+                <label>
+                    <input type="checkbox" required>
+                    I have read T&Cs, I allow to be notified via WhatsApp
+                </label>
+            </div>
+
+            <div class="consent-group">
+                <label>
+                    <input type="checkbox" required>
+                    I give consent to receive promotional communication from COMPANY NAME via WhatsApp
+                </label>
+            </div>
+
+            <button type="submit" class="send-button">SEND</button>
+
+            <div class="loading-container" id="loadingContainer">
+                <div class="loading-spinner"></div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill"></div>
+                </div>
+                <div class="progress-text">Generating your personalized video...</div>
+            </div>
+
+            <div class="message">
+                A link to your personalized video will be sent<br>
+                via email in X amount of hours.
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+
+            <div id="resultSection">
+                <a href="#" id="downloadButton" class="download-button" target="_blank">
+                    <span>⬇️ Download Video</span>
+                </a>
+                <div class="social-buttons">
+                    <a href="#" class="social-button facebook" target="_blank">
+                        <i class="fab fa-facebook-f"></i> Facebook
+                    </a>
+                    <a href="#" class="social-button whatsapp" target="_blank">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
+                    <a href="#" class="social-button twitter" target="_blank">
+                        <i class="fab fa-x-twitter"></i> X
+                    </a>
+                    <a href="#" class="social-button tiktok" target="_blank">
+                        <i class="fab fa-tiktok"></i> TikTok
+                    </a>
+                    <a href="#" class="social-button instagram" target="_blank">
+                        <i class="fab fa-instagram"></i> Instagram
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function handleLocationChange(value) {
+            const customLocation = document.getElementById('customLocation');
+            if (value === 'other') {
+                customLocation.style.display = 'block';
+                customLocation.required = true;
+                document.getElementById('location').required = false;
+            } else {
+                customLocation.style.display = 'none';
+                customLocation.required = false;
+                document.getElementById('location').required = true;
+            }
+        }
+
+        function getLocation() {
+            const locationSelect = document.getElementById('location');
+            const customLocation = document.getElementById('customLocation');
+            return locationSelect.value === 'other' ? customLocation.value : locationSelect.value;
+        }
+
+        function updateSocialShareLinks(videoUrl) {
+            const encodedUrl = encodeURIComponent(videoUrl);
+            const encodedText = encodeURIComponent('Check out my personalized video!');
+            
+            document.querySelector('.facebook').href = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+            document.querySelector('.whatsapp').href = `https://api.whatsapp.com/send?text=${encodedText}%20${encodedUrl}`;
+            document.querySelector('.twitter').href = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`;
+            document.querySelector('.tiktok').href = `https://www.tiktok.com/upload?url=${encodedUrl}`;
+            document.querySelector('.instagram').href = `https://www.instagram.com/`;
+        }
+
+        async function checkVideoStatus(taskId) {
+            try {
+                const response = await fetch(`/check-video-status/${taskId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to check video status');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Error checking video status:', error);
+                return null;
+            }
+        }
+
+        async function pollVideoStatus(taskId) {
+            const maxAttempts = 300; // 1 minute with 1-second intervals
+            let attempts = 0;
+
+            const poll = async () => {
+                if (attempts >= maxAttempts) {
+                    throw new Error('Video generation timed out');
+                }
+
+                const status = await checkVideoStatus(taskId);
+                if (!status) {
+                    throw new Error('Failed to get video status');
+                }
+
+                if (status.completed) {
+                    return status;
+                }
+
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                return poll();
+            };
+
+            return poll();
+        }
+
+        document.getElementById('contactForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const statusMessage = document.getElementById('statusMessage');
+            const submitButton = document.querySelector('.send-button');
+            const loadingContainer = document.getElementById('loadingContainer');
+            const resultSection = document.getElementById('resultSection');
+            
+            // Reset UI
+            resultSection.style.display = 'none';
+            resultSection.classList.remove('visible');
+            
+            // Show loading state
+            submitButton.disabled = true;
+            submitButton.textContent = 'PROCESSING...';
+            loadingContainer.style.display = 'block';
+            statusMessage.className = 'status-message';
+            statusMessage.textContent = '';
+            
+            const formData = {
+                location: getLocation(),
+                name: document.getElementById('name').value,
+                mobile: document.getElementById('mobile').value,
+                email: document.getElementById('email').value
+            };
+
+            try {
+                // Start video generation
+                const response = await fetch('/generate-video', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to start video generation');
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'processing' && result.taskId) {
+                    // Poll for video completion
+                    const videoStatus = await pollVideoStatus(result.taskId);
+                    
+                    if (videoStatus.status === 'success' && videoStatus.videoUrl) {
+                        // Update download button and show result section
+                        document.getElementById('downloadButton').href = videoStatus.videoUrl;
+                        updateSocialShareLinks(videoStatus.videoUrl);
+                        
+                        // Show result section with animation
+                        resultSection.style.display = 'block';
+                        setTimeout(() => {
+                            resultSection.classList.add('visible');
+                        }, 100);
+
+                        statusMessage.textContent = 'Your personalized video has been generated successfully!';
+                        statusMessage.className = 'status-message success';
+                    } else {
+                        throw new Error(videoStatus.message || 'Video generation failed');
+                    }
+                } else {
+                    throw new Error(result.message || 'Failed to start video generation');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                loadingContainer.style.display = 'none';
+                statusMessage.textContent = error.message || 'An error occurred. Please try again later.';
+                statusMessage.className = 'status-message error';
+                resultSection.style.display = 'none';
+            }
+
+            // Always hide loading and reset submit button
+            loadingContainer.style.display = 'none';
+            submitButton.disabled = false;
+            submitButton.textContent = 'SEND';
+        });
+    </script>
+</body>
+</html>

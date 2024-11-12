@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing Page</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="landing-page">
+    <div class="container">
+        <div class="greeting">
+            HELLO, GET YOUR PERSONALIZED GREETING NOW
+        </div>
+
+        <form id="greetingForm">
+            <label class="input-label">ENTER THE NAME YOU WANT PERSONALIZED</label>
+            <input type="text" id="nameInput" placeholder="Type Name here" required>
+
+            <div class="image-placeholder">
+                <img src="assets/image_landingPage.jpg" alt="Landing Page Image" class="landing-image">
+            </div>
+
+            <button type="submit" class="submit-btn">SUBMIT</button>
+            <div id="loading" class="loading">Generating personalized greeting...</div>
+            <div id="error" class="error-message"></div>
+            <div id="audioContainer" class="audio-container"></div>
+        </form>
+    </div>
+
+    <script>
+        const baseUrl = window.location.origin;
+
+        document.getElementById('greetingForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const nameInput = document.getElementById('nameInput');
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const submitBtn = document.querySelector('.submit-btn');
+            const audioContainer = document.getElementById('audioContainer');
+            
+            // Reset UI state
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            
+            if (!nameInput.value.trim()) {
+                errorDiv.textContent = 'Please enter a name';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+
+            try {
+                console.log('Starting request to generate greeting...');
+                console.log('Name value:', nameInput.value.trim());
+
+                const response = await fetch(`${baseUrl}/generate-greeting`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: nameInput.value.trim() })
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+                const responseData = await response.json();
+                console.log('Response data:', responseData);
+
+                if (!response.ok) {
+                    throw new Error(responseData.error || 'Failed to generate greeting');
+                }
+
+                // Redirect to form page immediately after successful generation
+                window.location.href = 'form.html';
+
+            } catch (error) {
+                console.error('Error details:', error);
+                errorDiv.textContent = error.message || 'Failed to generate greeting. Please try again.';
+                errorDiv.style.display = 'block';
+            } finally {
+                // Re-enable button and hide loading
+                submitBtn.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
